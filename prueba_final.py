@@ -6,104 +6,106 @@ import os
 import platform
 import subprocess
 
-# Función para ejecutar Hashcat y encontrar coincidencias
-def ejecutar_hashcat(archivo_hashes, archivo_listado):
-    comando_hashcat = f"hashcat -a 0 -m 0 {archivo_hashes} {archivo_listado} -o plain.txt --potfile-disable"
-    os.system(comando_hashcat)
+# Function to execute Hashcat and find matches
+def run_hashcat(hash_file, wordlist_file):
+    hashcat_command = f"hashcat -a 0 -m 0 {hash_file} {wordlist_file} -o plain.txt --potfile-disable"
+    # The last parameter is needed because HAshcaut create an a pot file that can not create a file the we need.
 
-# Función para comparar hashes originales con los encontrados por Hashcat
-def comparar_hashes(archivo_hashes, archivo_listado):
-    # Abrir plain.txt para escritura
-    with open("plain.txt", "w") as archivo_salida:
-        # Llamar a ejecutar_hashcat para obtener las coincidencias
-        ejecutar_hashcat(archivo_hashes, archivo_listado)
+    os.system(hashcat_command)
 
-        # Abrir plain.txt para lectura
-        with open("plain.txt", "r") as archivo_resultado:
-            hashes_encontrados = archivo_resultado.readlines()
+# Function to compare original hashes with those found by Hashcat
+def compare_hashes(hash_file, wordlist_file):
+    # Open plain.txt for writing
+    with open("plain.txt", "w") as output_file:
+        # Call run_hashcat to get matches
+        run_hashcat(hash_file, wordlist_file)
 
-        # Abrir archivo_hashes para lectura
-        with open(archivo_hashes, "r", encoding="latin-1") as archivo_original:
-            hashes_originales = archivo_original.readlines()
+        # Open plain.txt for reading
+        with open("plain.txt", "r") as result_file:
+            found_hashes = result_file.readlines()
 
-        # Comparar hashes y escribir resultados en plain.txt
-        for hash_original in hashes_originales:
-            hash_original = hash_original.strip()
-            hash_encontrado = next((h.strip() for h in hashes_encontrados if h.strip() and h.strip().startswith(hash_original)), None)
+        # Open hash_file for reading
+        with open(hash_file, "r", encoding="latin-1") as original_file:
+            original_hashes = original_file.readlines()
 
-            if hash_encontrado:
-                archivo_salida.write(f"{hash_original} {hash_encontrado[len(hash_original):].strip()}\n")
+        # Compare hashes and write results to plain.txt
+        for original_hash in original_hashes:
+            original_hash = original_hash.strip()
+            found_hash = next((h.strip() for h in found_hashes if h.strip() and h.strip().startswith(original_hash)), None)
+
+            if found_hash:
+                output_file.write(f"{original_hash} {found_hash[len(original_hash):].strip()}\n")
             else:
-                archivo_salida.write(f"{hash_original}\n")
+                output_file.write(f"{original_hash}\n")
 
-# Función para crear contraseñas con hashes SHA-256 y salt
-def crear_passwords(archivo_entrada="plain.txt", archivo_salida="passwords.txt"):
-    # Abrir plain.txt para lectura
-    with open(archivo_entrada, "r") as archivo_entrada:
-        lineas = archivo_entrada.readlines()
+# Function to create passwords with SHA-256 hashes and salt
+def create_passwords(input_file="plain.txt", output_file="passwords.txt"):
+    # Open plain.txt for reading
+    with open(input_file, "r") as input_file:
+        lines = input_file.readlines()
 
-    # Abrir archivo_salida para escritura
-    with open(archivo_salida, "w") as archivo_salida:
-        # Procesar cada línea en plain.txt
-        for linea in lineas:
-            valores = linea.strip().split(':')
-            if len(valores) >= 2:
-                # Tomar el segundo valor original
-                palabra_asociada = valores[1]
-                
-                # Generar un salt aleatorio
+    # Open output_file for writing
+    with open(output_file, "w") as output_file:
+        # Process each line in plain.txt
+        for line in lines:
+            values = line.strip().split(':')
+            if len(values) >= 2:
+                # Take the second original value
+                associated_word = values[1]
+
+                # Generate a random salt
                 salt = secrets.token_hex(8)
 
-                # Calcular el hash SHA-256 con salt
-                hash_sha256 = hashlib.sha256((palabra_asociada + salt).encode()).hexdigest()
+                # Calculate SHA-256 hash with salt
+                hash_sha256 = hashlib.sha256((associated_word + salt).encode()).hexdigest()
 
-                # Escribir el resultado en passwords.txt
-                archivo_salida.write(f"{valores[1]}: {hash_sha256}\n")
+                # Write the result to passwords.txt
+                output_file.write(f"{values[1]}: {hash_sha256}\n")
             else:
-                # Escribir la línea tal cual en passwords.txt si no hay segundo valor
-                archivo_salida.write(f'{linea}')
+                # Write the line as is to passwords.txt if there is no second value
+                output_file.write(f'{line}')
 
-# Función para verificar si Hashcat está instalado en sistemas Debian
-def verificar_hashcat_instalado():
+# Function to check if Hashcat is installed on Debian systems
+def check_hashcat_installed():
     try:
-        resultado = subprocess.run(["hashcat", "--version"], capture_output=True, check=True, text=True)
-        print("Hashcat está instalado. Versión:", resultado.stdout.strip())
+        result = subprocess.run(["hashcat", "--version"], capture_output=True, check=True, text=True)
+        print("Hashcat is installed. Version:", result.stdout.strip())
         return True
     except FileNotFoundError:
         return False
     except subprocess.CalledProcessError:
         return False
 
-# Función para instalar Hashcat en sistemas Debian
-def instalar_hashcat():
-    respuesta = input("Hashcat no está instalado. ¿Deseas instalarlo? (y/n): ")
-    if respuesta.lower() == 'y':
+# Function to install Hashcat on Debian systems
+def install_hashcat():
+    response = input("Hashcat is not installed. Do you want to install it? (y/n): ")
+    if response.lower() == 'y':
         try:
             subprocess.run(["sudo", "apt", "install", "hashcat"], check=True)
-            print("Hashcat se ha instalado correctamente.")
+            print("Hashcat has been installed successfully.")
             return True
         except subprocess.CalledProcessError:
-            print("Hubo un error al instalar Hashcat.")
+            print("There was an error installing Hashcat.")
             return False
     else:
-        print("Hashcat no se ha instalado. Puedes instalarlo manualmente en el futuro.")
+        print("Hashcat has not been installed. You can install it manually in the future.")
         return False
 
-# Punto de entrada del script
+# Script entry point
 if __name__ == "__main__":
-    sistema_operativo = platform.system()
+    operating_system = platform.system()
 
-    if sistema_operativo == "Windows":
-        print("Este script solo es funcional en sistemas Linux basados en Debian.")
-    elif sistema_operativo == "Linux":
-        if verificar_hashcat_instalado():
-            archivo_hashes = 'pass_md5.txt'
-            archivo_listado = 'rockyou.txt'
-            comparar_hashes(archivo_hashes, archivo_listado)
-            crear_passwords()
-            print("Proceso completado.")
+    if operating_system == "Windows":
+        print("This script is only functional on Debian-based Linux systems.")
+    elif operating_system == "Linux":
+        if check_hashcat_installed():
+            hash_file = 'pass_md5.txt'
+            wordlist_file = 'rockyou.txt'
+            compare_hashes(hash_file, wordlist_file)
+            create_passwords()
+            print("Process completed.")
         else:
-            instalar_hashcat()
-            print("Por favor, vuelve a ejecutar el script después de instalar Hashcat.")
+            install_hashcat()
+            print("Please run the script again after installing Hashcat.")
     else:
-        print(f"Este script no ha sido probado en el sistema operativo: {sistema_operativo}.")
+        print(f"This script has not been tested on the operating system: {operating_system}.")
